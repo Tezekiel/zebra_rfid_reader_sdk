@@ -54,9 +54,9 @@ class RfidEventHandler(
 
         /// Battery Event
         if (rfidStatusEvents.StatusEventData.statusEventType === STATUS_EVENT_TYPE.BATTERY_EVENT) {
-            val batteryData: Events.BatteryData = rfidStatusEvents.StatusEventData.BatteryData
-            Log.d(LOG_TAG, "Battery Event: $batteryData")
-            Log.d(LOG_TAG, "IS CHARGING -> ${batteryData.charging}")
+//            val batteryData: Events.BatteryData = rfidStatusEvents.StatusEventData.BatteryData
+//            Log.d(LOG_TAG, "Battery Event: $batteryData")
+//            Log.d(LOG_TAG, "IS CHARGING -> ${batteryData.charging}")
 
             ReaderResponse.setConnectionStatus(ConnectionStatus.connected)
             ReaderResponse.setBatteryLevel(batteryData.level.toString())
