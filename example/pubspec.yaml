@@ -4,7 +4,7 @@ description: Demonstrates how to use the zebra_rfid_reader_sdk plugin.
 publish_to: 'none' 
 
 environment:
-  sdk: '>=2.19.2 <3.0.0'
+  sdk: '>=3.6.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -13,7 +13,7 @@ dependencies:
   zebra_rfid_reader_sdk:
     path: ../
   cupertino_icons: ^1.0.8
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.0
 
 
 dev_dependencies:
