@@ -35,6 +35,7 @@ class ZebraConnectionHelper(
     init {
         Log.d(LOG_TAG, "Creating reader for bluetooth connection")
         readers = Readers(context, ENUM_TRANSPORT.RE_SERIAL)
+        availableRFIDReaderList = readers.GetAvailableRFIDReaderList()
     }
 
     override fun onCleared() {
@@ -47,11 +48,8 @@ class ZebraConnectionHelper(
      *
      * @param readerConfig User configuration.
      */
-    @Synchronized
     fun connect(name: String, readerConfig: HashMap<String, Any>) {
-        viewModelScope.launch(Dispatchers.IO) {
-
-
+        viewModelScope.launch() {
             ReaderResponse.setConnectionStatus(ConnectionStatus.connecting)
             ReaderResponse.setName(name)
             tagHandlerEvent.sendEvent(ReaderResponse.toJson())
@@ -62,20 +60,18 @@ class ZebraConnectionHelper(
                 reader!!.disconnect()
             }
             try {
-                clearConfiguration()
                 Log.d(LOG_TAG, "Reader is created")
-                availableRFIDReaderList = readers.GetAvailableRFIDReaderList()
+                if (availableRFIDReaderList == null || availableRFIDReaderList!!.isEmpty()) {
+                    Log.d(LOG_TAG, "No readers found, fetching them again")
+                    availableRFIDReaderList = readers.GetAvailableRFIDReaderList()
+                }
                 if (availableRFIDReaderList != null) {
                     Log.d(LOG_TAG, "Readers found: " + availableRFIDReaderList.toString())
 
                     if (availableRFIDReaderList!!.size != 0) {
                         /// get first reader from list
-                        readerDevice =
-                            availableRFIDReaderList!!.first { readerDevice ->
-                                readerDevice.name == name
-                            }
-
-                        reader = readerDevice?.rfidReader
+                        readerDevice = availableRFIDReaderList!!.first()
+                        reader = readerDevice!!.getRFIDReader()
 
                         if (reader != null) {
                             Log.d(LOG_TAG, "Connecting to reader")
@@ -103,25 +99,20 @@ class ZebraConnectionHelper(
 
             } catch (e: OperationFailureException) {
                 if (e.results == RFIDResults.RFID_READER_REGION_NOT_CONFIGURED) {
-                    setDefaultRegion("TUR", name, readerConfig)
+                    connect(name, readerConfig)
+                    Log.d(LOG_TAG, "CONNECTION FAILED 2 -> RFID_READER_REGION_NOT_CONFIGURED")
+                } else {
+                    Log.d(LOG_TAG, "CONNECTION FAILED 2 -> ${e.results}")
+                    e.printStackTrace()
+                    disconnect()
+                    ReaderResponse.setConnectionStatus(ConnectionStatus.notConnected)
+                    tagHandlerEvent.sendEvent(ReaderResponse.toJson())
                 }
-
-                e.printStackTrace()
-                Log.d(LOG_TAG, "CONNECTION FAILED 2 ->  ${e.results}")
-                ReaderResponse.setAsConnectionError()
-                tagHandlerEvent.sendEvent(ReaderResponse.toJson())
 
             }
         }
     }
 
-
-    /**
-     * Finds the tag with the given tag ID.
-     *
-     * @param tag The tag ID to find.
-     */
-    @Synchronized
     fun findTheTag(tag: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -144,10 +135,6 @@ class ZebraConnectionHelper(
         }
     }
 
-    /**
-     * Stops finding the tag.
-     */
-    @Synchronized
     fun stopFindingTheTag() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -169,9 +156,6 @@ class ZebraConnectionHelper(
         }
     }
 
-    /**
-     * Resets the RFID reader configuration and clears associated resources.
-     */
     private fun clearConfiguration() {
         readers = Readers(context, ENUM_TRANSPORT.RE_SERIAL)
         availableRFIDReaderList = null
@@ -180,10 +164,6 @@ class ZebraConnectionHelper(
         rfidEventHandler = null
     }
 
-    /**
-     * Disconnects the RFID reader and cleans up all resources.
-     */
-    @Synchronized
     fun disconnect() {
         try {
             reader!!.disconnect()
@@ -202,12 +182,6 @@ class ZebraConnectionHelper(
         }
     }
 
-    /**
-     * Configures the reader.
-     *
-     * @param readerConfig User configuration.
-     */
-    @Synchronized
     private fun configureReader(readerConfig: HashMap<String, Any>) {
         if (reader!!.isConnected) {
             Log.d(TAG, "ConfigureReader " + reader!!.hostName)
@@ -228,7 +202,8 @@ class ZebraConnectionHelper(
             triggerInfo.StopTrigger.triggerType = STOP_TRIGGER_TYPE.STOP_TRIGGER_TYPE_IMMEDIATE
             try {
 
-                rfidEventHandler = RfidEventHandler(reader!!, tagHandlerEvent, tagFindHandler, readTagEvent)
+                rfidEventHandler =
+                    RfidEventHandler(reader!!, tagHandlerEvent, tagFindHandler, readTagEvent)
                 reader!!.Events.addEventsListener(rfidEventHandler)
                 reader!!.Events.setHandheldEvent(true)
                 reader!!.Events.setTagReadEvent(true)
